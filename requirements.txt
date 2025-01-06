@@ -1,0 +1,6 @@
+libraries
+1. kivy
+2. EngServ
+3. adafruit_pca9685
+
+RPI - 4 || Zero 2W
