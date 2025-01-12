@@ -2,10 +2,8 @@ import time
 from adafruit_pca9685 import PCA9685
 from unittest.mock import MagicMock
 from adafruit_motor import servo
-try:
-    import board
-except NotImplementedError:
-    import fake_board as board
+import board
+
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 
@@ -20,15 +18,8 @@ class EngServ:
         self._setup_servos() # Сервоприводы
         
     def _initialize_pca(self):
-        mock_i2c = MagicMock()
-        mock_i2c.try_lock = MagicMock(return_value=True)
-        def mock_read(addr, buf):
-            if addr == 0x40:  # Адрес PCA9685 (стандартный 0x40)
-                buf[0] = 0x04  # Допустимое значение pre_scale (>= 3)
-    
-        mock_i2c.readfrom_into = MagicMock(side_effect=mock_read)
-    
-        pca = PCA9685(mock_i2c)
+        i2c = board.I2C()
+        pca = PCA9685(i2c)
         pca.frequency = self.frequency
         return pca
 
@@ -56,10 +47,16 @@ class EngServ:
         self.log(f"Канал {channel}, Ширина импульса: {pulse_width_ms} мс, Duty Cycle: {duty_cycle}")
 
     def set_rudder(self,num,rudder):
-        ang = 180 - rudder
+        ang = 145 - (rudder/35*20) 
         self.log(f'Serv {self.servos[num]}, Angle {ang}')
         self.servos[num].angle = ang
-
+    
+    def update_rudder_angle(self, instance, value):
+    # Преобразование значения слайдера в угол поворота рулей
+        ang = 145 - (value / 35 * 20)  # Примерная калибровка под диапазон 145-180
+        self.sys.set_rudder(0, value)  # Установка угла на левый руль
+        self.sys.set_rudder(1, value)  # Установка угла на правый руль
+    
     def _initialize_single_esc(self, channel, stop_flag):
         if stop_flag.is_set():
             return
@@ -92,14 +89,16 @@ class EngServ:
         time.sleep(2)
 
     def stop_process(self):
-        self.log("Stopping process...")
+        self.log("Остановка процесса")
         for channel in self.motor_channels:
             self.set_motor_speed(channel, 0)
-
+        self.servos[0].angle = 145
+        self.servos[1].angle = 145
+        
     def process(self, speed, rudder, stop_flag):
        
         if stop_flag.is_set():
-            self.log("Прерывание инициализации")
+            self.log("Прерывание процесса")
             self.stop_process()
             return
         
@@ -109,7 +108,7 @@ class EngServ:
             self.set_motor_speed(self.motor_channels[1], speed)
             self.set_rudder(0, rudder)
             self.set_rudder(1, rudder)
-            time.sleep(5)   
+            time.sleep(2)   
         else:
             self.log("Остановка...")
             self.stop_process()

@@ -5,7 +5,7 @@ from ui.interface import MainWidget
 
 class SliderApp(App):
     def build(self):
-        Window.size = (600, 600)
+        Window.size = (1000, 1000)
         return MainWidget()
 
 
